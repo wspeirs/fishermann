@@ -22,7 +22,7 @@ fn main() {
     let mut stockfish_cmd = Command::new("/usr/local/bin/stockfish");
     let mut analysis_engine = Uci::start_engine(&mut stockfish_cmd);
 
-    while count < 10_000 {
+    while count < 1_000_000 {
         // create a new board
         let mut board = Chess::default();
 
