@@ -1,6 +1,7 @@
 import chess
 import sys
 
+# Stockfish values can be found here: https://github.com/official-stockfish/Stockfish/blob/master/src/types.h#L189
 PIECE2VALUE = {
     None: 0,
     'None': 0,
@@ -27,9 +28,17 @@ if len(sys.argv) < 2:
 
 file = sys.argv[1]
 
+seen_fens = set()
+
 with open(file, 'r') as fp:
     for line in fp.readlines():
         score, fen = line.split(":")
+
+        if fen in seen_fens:
+            continue
+
+        # add to the list of things seen
+        seen_fens.add(fen)
 
         # print the score
         print("{}:".format(score), end='')
