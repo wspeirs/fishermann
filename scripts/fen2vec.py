@@ -5,18 +5,23 @@ import sys
 PIECE2VALUE = {
     None: 0,
     'None': 0,
-    'p': -100,
-    'n': -400,
-    'b': -400,
-    'r': -600,
-    'q': -1200,
-    'k': -10000,
-    'P': 100,
-    'N': 400,
-    'B': 400,
-    'R': 600,
-    'Q': 1200,
-    'K': 10000
+    'p': -126,
+    'n': -781,
+    'b': -825,
+    'r': -1276,
+    'q': -2538,
+    'k': -32000,
+    'P': 126,
+    'N': 781,
+    'B': 825,
+    'R': 1276,
+    'Q': 2538,
+    'K': 32000
+}
+
+SIDE_TO_PLAY = {
+    chess.WHITE: 50000,
+    chess.BLACK: -50000
 }
 
 SQUARES = [chess.Square(s) for s in range(64)]
@@ -46,10 +51,7 @@ with open(file, 'r') as fp:
         board = chess.Board(fen.strip())
 
         # print a value for who's turn it is
-        if board.turn == chess.WHITE:
-            print('10000 ', end='')
-        else:
-            print('-10000 ', end='')
+        print('{}'.format(SIDE_TO_PLAY[board.turn]))
 
         for square in SQUARES:
             piece = board.piece_at(square)
