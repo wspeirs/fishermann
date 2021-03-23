@@ -2,6 +2,7 @@ use shakmaty::{Chess, Position, Setup, Color, Piece, Role, Move};
 use shakmaty::fen::{board_fen, epd};
 use std::cmp::max;
 use smallvec::{smallvec, SmallVec};
+use std::time::Instant;
 
 
 const MAX_DEPTH :usize = 96;
@@ -125,14 +126,89 @@ fn negamax(game :&Chess, depth :usize) -> SmallVec<[(Option<Move>, i64); MAX_DEP
 
     // println!("{}: {:?}", depth, stack);
 
-    stack
+    // we might not have actually gotten _any_ legal moves here
+    // so we just return a "very bad" value
+    if stack.is_empty() {
+        let val = if game.turn() == Color::White {
+            i64::MIN
+        } else {
+            i64::MAX
+        };
+
+        smallvec![(None, val)]
+    } else {
+        stack
+    }
+}
+
+fn negamax2(game :&Chess, depth :usize, alpha :&mut i64, beta :i64) -> SmallVec<[(Option<Move>, i64); MAX_DEPTH]> {
+    if game.is_checkmate() {
+        let val = if game.turn() == Color::White {
+            i64::MIN
+        } else {
+            i64::MAX
+        };
+
+        return smallvec![(None, val)];
+    }
+
+    if depth == 0 {
+        return smallvec![(None, evaluate(game))];
+    }
+
+    let mut value = i64::MIN;
+    let mut stack = smallvec![];
+
+    // generate all the legal moves
+    for mv in game.legal_moves() {
+        let mut new_game = game.clone();
+        new_game.play_unchecked(&mv);
+
+        let mut new_alpha = beta.saturating_neg();
+        let new_beta = alpha.saturating_neg();
+
+        let new_stack = negamax2(&new_game, depth - 1, &mut new_alpha, new_beta);
+        let new_value = new_stack.last().unwrap().1.saturating_neg();
+
+        if new_value > value {
+            stack = new_stack;
+            stack.push( (Some(mv.clone()), new_value) );
+            value = new_value;
+        }
+
+        *alpha = max(*alpha, value);
+
+        if *alpha >= beta {
+            break
+        }
+    }
+
+    // we might not have actually gotten _any_ legal moves here
+    // so we just return a "very bad" value
+    if stack.is_empty() {
+        let val = if game.turn() == Color::White {
+            i64::MIN
+        } else {
+            i64::MAX
+        };
+
+        smallvec![(None, val)]
+    } else {
+        stack
+    }
 }
 
 fn main() {
-    // create a new board
+    // let mut game = Chess::default();
+    // let start = Instant::now();
+    // let res = negamax(&game, 6);
+    // println!("{}s: {:?}", start.elapsed().as_secs_f64(), res);
+
     let mut game = Chess::default();
+    let start = Instant::now();
+    let res = negamax2(&game, 7, &mut i64::MIN, i64::MAX);
+    println!("{}s: {:?}", start.elapsed().as_secs_f64(), res);
 
-    let res = negamax(&game, 4);
+    game.board().king_of(Color::White).unwrap();
 
-    println!("{:?}", res);
 }
