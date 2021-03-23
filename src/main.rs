@@ -1,6 +1,10 @@
-use shakmaty::{Chess, Position, Setup, Color, Piece, Role};
+use shakmaty::{Chess, Position, Setup, Color, Piece, Role, Move};
 use shakmaty::fen::{board_fen, epd};
+use std::cmp::max;
+use smallvec::{smallvec, SmallVec};
 
+
+const MAX_DEPTH :usize = 96;
 
 const KING_VALUES :[i64; 64] =
     [ -30,-40,-40,-50,-50,-40,-40,-30,
@@ -95,22 +99,40 @@ fn evaluate(game :&Chess) -> i64 {
     white_score - black_score
 }
 
+fn negamax(game :&Chess, depth :usize) -> SmallVec<[(Option<Move>, i64); MAX_DEPTH]> {
+    if depth == 0 {
+        // println!("{}", game.board());
+        return smallvec![(None, evaluate(game))];
+    }
+
+    let mut value = i64::MIN;
+    let mut stack = smallvec![];
+
+    // generate all the legal moves
+    for mv in game.legal_moves() {
+        let mut new_game = game.clone();
+        new_game.play_unchecked(&mv);
+
+        let new_stack = negamax(&new_game, depth - 1);
+        let new_value = new_stack.last().unwrap().1 * -1;
+
+        if new_value > value {
+            stack = new_stack;
+            stack.push( (Some(mv.clone()), new_value) );
+            value = new_value;
+        }
+    }
+
+    // println!("{}: {:?}", depth, stack);
+
+    stack
+}
 
 fn main() {
     // create a new board
     let mut game = Chess::default();
 
-    for mv in game.legal_moves() {
-        let mut new_game = game.clone();
-        new_game.play_unchecked(&mv);
+    let res = negamax(&game, 4);
 
-        println!("{}: {}", mv, evaluate(&new_game));
-
-        for mv2 in new_game.legal_moves() {
-            let mut new_game2 = new_game.clone();
-            new_game2.play_unchecked(&mv2);
-
-            println!("\t{}: {}", mv2, evaluate(&new_game2));
-        }
-    }
+    println!("{:?}", res);
 }
