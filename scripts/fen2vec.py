@@ -51,7 +51,7 @@ with open(file, 'r') as fp:
         board = chess.Board(fen.strip())
 
         # print a value for who's turn it is
-        print('{}'.format(SIDE_TO_PLAY[board.turn]))
+        print('{} '.format(SIDE_TO_PLAY[board.turn]), end='')
 
         for square in SQUARES:
             piece = board.piece_at(square)
