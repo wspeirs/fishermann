@@ -1,8 +1,12 @@
-use shakmaty::{Chess, Position, Setup, Color, Piece, Role, Move};
-use shakmaty::fen::{board_fen, epd};
 use std::cmp::max;
-use smallvec::{smallvec, SmallVec};
 use std::time::Instant;
+
+use shakmaty::{Chess, Position, Setup, Color, Piece, Role, Move, CastlingMode};
+use shakmaty::fen::{board_fen, epd, Fen};
+
+use smallvec::{smallvec, SmallVec};
+
+use rayon::prelude::*;
 
 
 const MAX_DEPTH :usize = 96;
@@ -97,63 +101,44 @@ fn evaluate(game :&Chess) -> i64 {
         black_score += get_value(square.flip_vertical() as usize, &board.piece_at(square).unwrap())
     }
 
-    white_score - black_score
-}
-
-fn negamax(game :&Chess, depth :usize) -> SmallVec<[(Option<Move>, i64); MAX_DEPTH]> {
-    if depth == 0 {
-        // println!("{}", game.board());
-        return smallvec![(None, evaluate(game))];
-    }
-
-    let mut value = i64::MIN;
-    let mut stack = smallvec![];
-
-    // generate all the legal moves
-    for mv in game.legal_moves() {
-        let mut new_game = game.clone();
-        new_game.play_unchecked(&mv);
-
-        let new_stack = negamax(&new_game, depth - 1);
-        let new_value = new_stack.last().unwrap().1 * -1;
-
-        if new_value > value {
-            stack = new_stack;
-            stack.push( (Some(mv.clone()), new_value) );
-            value = new_value;
-        }
-    }
-
-    // println!("{}: {:?}", depth, stack);
-
-    // we might not have actually gotten _any_ legal moves here
-    // so we just return a "very bad" value
-    if stack.is_empty() {
-        let val = if game.turn() == Color::White {
-            i64::MIN
-        } else {
-            i64::MAX
-        };
-
-        smallvec![(None, val)]
+    if game.turn() == Color::White {
+        (white_score + 10) - black_score
     } else {
-        stack
+        white_score - (black_score + 10)
     }
 }
 
-fn negamax2(game :&Chess, depth :usize, alpha :&mut i64, beta :i64) -> SmallVec<[(Option<Move>, i64); MAX_DEPTH]> {
+// fn negamax(game :&Chess, depth :usize) -> SmallVec<[(Option<Move>, i64); MAX_DEPTH]> {
+    // get all the moves
+    // let mut results = negamax_basic(game, 2);
+    //
+    // // sort the moves (is this the correct order?!?
+    // results.sort_unstable_by_key(|(_op_mv, score)| score);
+    //
+    // // now go through each move, increasing the depth
+    // for d in 3..depth {
+    //     let mut value = i64::MIN;
+    //     let mut stack = smallvec![];
+    //
+    //     for mv in results.iter().map(|(mv, _score)| mv) {
+    //
+    //     }
+    // }
+
+    // return negamax_ab(game, depth, &mut i64::MIN, i64::MAX);
+// }
+
+fn negamax_ab(game :&Chess, depth :usize, alpha :&mut i64, beta :i64) -> (i64, SmallVec<[Move; MAX_DEPTH]>) {
+    if depth == 0 {
+        return (evaluate(&game), smallvec![]);
+    }
+
     if game.is_checkmate() {
-        let val = if game.turn() == Color::White {
+        return (if game.turn() == Color::White {
             i64::MIN
         } else {
             i64::MAX
-        };
-
-        return smallvec![(None, val)];
-    }
-
-    if depth == 0 {
-        return smallvec![(None, evaluate(game))];
+        }, smallvec![]);
     }
 
     let mut value = i64::MIN;
@@ -167,12 +152,12 @@ fn negamax2(game :&Chess, depth :usize, alpha :&mut i64, beta :i64) -> SmallVec<
         let mut new_alpha = beta.saturating_neg();
         let new_beta = alpha.saturating_neg();
 
-        let new_stack = negamax2(&new_game, depth - 1, &mut new_alpha, new_beta);
-        let new_value = new_stack.last().unwrap().1.saturating_neg();
+        // make the recursive call
+        let (new_value, new_stack) = negamax_ab(&new_game, depth - 1, &mut new_alpha, new_beta);
 
         if new_value > value {
             stack = new_stack;
-            stack.push( (Some(mv.clone()), new_value) );
+            stack.push(mv.clone());
             value = new_value;
         }
 
@@ -186,29 +171,103 @@ fn negamax2(game :&Chess, depth :usize, alpha :&mut i64, beta :i64) -> SmallVec<
     // we might not have actually gotten _any_ legal moves here
     // so we just return a "very bad" value
     if stack.is_empty() {
+        // println!("STACK EMPTY!!!");
         let val = if game.turn() == Color::White {
             i64::MIN
         } else {
             i64::MAX
         };
 
-        smallvec![(None, val)]
+        (val, smallvec![])
     } else {
-        stack
+        (value, stack)
     }
 }
 
+fn negamax_basic(game :&Chess, depth :usize) -> (i64, SmallVec<[Move; MAX_DEPTH]>) {
+    if depth == 0 {
+        return (evaluate(&game), smallvec![]);
+    }
+
+    if game.is_checkmate() {
+        return (if game.turn() == Color::White {
+            i64::MIN
+        } else {
+            i64::MAX
+        }, smallvec![]);
+    }
+
+    let mut value = i64::MIN;
+    let mut stack = smallvec![];
+
+    // generate all the legal moves
+    for mv in game.legal_moves() {
+        let mut new_game = game.clone();
+        new_game.play_unchecked(&mv);
+
+        // make the recursive call
+        let (new_value, new_stack) = negamax_basic(&new_game, depth - 1);
+
+        // println!("D{} ({}) {}: {}", depth, mv, new_value, moves2string(&new_stack));
+
+        if new_value == value {
+            let mut print_stack = new_stack.clone();
+            print_stack.push(mv.clone());
+            println!("FOUND EQUAL: {} {} == {} {}", value, moves2string(&stack), new_value, moves2string(&print_stack));
+        }
+
+        if new_value > value {
+            stack = new_stack;
+            stack.push(mv.clone());
+            value = new_value;
+        }
+    }
+
+    // we might not have actually gotten _any_ legal moves here
+    // so we just return a "very bad" value
+    if stack.is_empty() {
+        println!("STACK EMPTY!!!");
+        let val = if game.turn() == Color::White {
+            i64::MIN
+        } else {
+            i64::MAX
+        };
+
+        (val, smallvec![])
+    } else {
+        (value, stack)
+    }
+}
+
+fn moves2string(moves:&SmallVec<[Move; MAX_DEPTH]>) -> String {
+    let ret = moves.iter().rev().map(|mv| {
+        mv.to_string()
+    }).collect::<Vec<_>>();
+
+    format!("{} ({})", ret.join(", "), moves.len())
+}
+
 fn main() {
-    // let mut game = Chess::default();
+    let depth = 20;
+    let fen = "8/8/k7/p7/2K5/1P6/8/8 w - - 0 1";
+    println!("DEPTH: {} FEN: {}", depth, fen);
+
+    let setup :Fen = fen.parse().expect("Error parsing FEN");
+
+    // let game :Chess = setup.position(CastlingMode::Standard).expect("Error setting up game");
     // let start = Instant::now();
-    // let res = negamax(&game, 6);
-    // println!("{}s: {:?}", start.elapsed().as_secs_f64(), res);
+    // let (score, moves) = negamax_basic(&game, depth);
+    // println!("{}s:\t{}: {}", start.elapsed().as_secs_f64(), score, moves2string(&moves));
 
-    let mut game = Chess::default();
+    // let game :Chess = setup.position(CastlingMode::Standard).expect("Error setting up game");
+    let game = Chess::default();
     let start = Instant::now();
-    let res = negamax2(&game, 7, &mut i64::MIN, i64::MAX);
-    println!("{}s: {:?}", start.elapsed().as_secs_f64(), res);
+    let (score, moves) = negamax_ab(&game, depth, &mut i64::MIN, i64::MAX);
+    println!("{}s:\t{}: {}", start.elapsed().as_secs_f64(), score, moves2string(&moves));
 
-    game.board().king_of(Color::White).unwrap();
+    // let game = Chess::default();
+    // let start = Instant::now();
+    // let res = parallel_negamax(&game, depth);
+    // println!("{}s: {:?}", start.elapsed().as_secs_f64(), res);
 
 }
