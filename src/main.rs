@@ -86,27 +86,26 @@ fn get_value(square :usize, piece :&Piece) -> i64 {
 /// Given a game, evaluate the board
 /// The evaluation is white_score - black_score
 fn evaluate(game :&Chess) -> i64 {
-    0
-    // let board = game.board();
-    //
-    // let mut white_score = 0_i64;
-    // let mut black_score = 0_i64;
-    //
-    // // go through the pieces on the white squares
-    // for square in board.by_color(Color::White) {
-    //     white_score += get_value(square as usize, &board.piece_at(square).unwrap())
-    // }
-    //
-    // // then through the black squares, flipping the square
-    // for square in board.by_color(Color::Black) {
-    //     black_score += get_value(square.flip_vertical() as usize, &board.piece_at(square).unwrap())
-    // }
-    //
-    // if game.turn() == Color::White {
-    //     (white_score + 10) - black_score
-    // } else {
-    //     white_score - (black_score + 10)
-    // }
+    let board = game.board();
+
+    let mut white_score = 0_i64;
+    let mut black_score = 0_i64;
+
+    // go through the pieces on the white squares
+    for square in board.by_color(Color::White) {
+        white_score += get_value(square as usize, &board.piece_at(square).unwrap())
+    }
+
+    // then through the black squares, flipping the square
+    for square in board.by_color(Color::Black) {
+        black_score += get_value(square.flip_vertical() as usize, &board.piece_at(square).unwrap())
+    }
+
+    if game.turn() == Color::White {
+        (white_score + 10) - black_score
+    } else {
+        white_score - (black_score + 10)
+    }
 }
 
 fn negamax_ab(game :&Chess, depth :usize, alpha :&mut i64, beta :i64) -> (i64, SmallVec<[Move; MAX_DEPTH]>) {
@@ -237,7 +236,7 @@ fn moves2string(moves:&SmallVec<[Move; MAX_DEPTH]>) -> String {
 }
 
 fn main() {
-    let depth = 6;
+    let depth = 7;
     let fen = "8/8/k7/p7/2K5/1Q6/8/8 w - - 0 1";
     println!("DEPTH: {} FEN: {}", depth, fen);
 
@@ -248,8 +247,8 @@ fn main() {
     // let (score, moves) = negamax_basic(&game, depth);
     // println!("{}s:\t{}: {}", start.elapsed().as_secs_f64(), score, moves2string(&moves));
 
-    let game :Chess = setup.position(CastlingMode::Standard).expect("Error setting up game");
-    // let game = Chess::default();
+    // let game :Chess = setup.position(CastlingMode::Standard).expect("Error setting up game");
+    let game = Chess::default();
     let start = Instant::now();
     let (score, moves) = negamax_ab(&game, depth, &mut i64::MIN, i64::MAX);
     println!("{}s:\t{}: {}", start.elapsed().as_secs_f64(), score, moves2string(&moves));

@@ -18,10 +18,10 @@ fn main() {
 
     let csv_file_path = args[1].replace("pgn", "csv");
     let mut pgn_file = BufReader::new(File::open(&args[1]).expect("Error opening PGN file"));
-    let mut csv_file = BufWriter::new(OpenOptions::new().truncate(true).write(true).create(true).open(csv_file_path).expect("Error opening CSV file"));
+    let mut csv_file = BufWriter::new(OpenOptions::new().truncate(true).write(true).create(true).open(csv_file_path.as_str()).expect("Error opening CSV file"));
 
     // write out the pseudo-header for the CSV file
-    writeln!(csv_file, "white, white-elo, black, black-elo, time-control");
+    writeln!(csv_file, "white,black,white-elo,black-elo,time-control,moves");
 
     let mut line = String::new();
     let mut headers = vec!["".to_string(); 5];
@@ -32,8 +32,9 @@ fn main() {
     let black_elo_pattern = Regex::new(r#"^\[BlackElo\s+"(.+)"\]"#).unwrap();
     let time_control_pattern = Regex::new(r#"^\[TimeControl\s+"(.+)"\]"#).unwrap();
 
-    let clock_pattern = Regex::new(r#" \{ \[%clk \d+:\d+:\d+\] \} "#).unwrap();
-    let index_pattern = Regex::new(r#"\d+\. "#).unwrap();
+    let clock_pattern = Regex::new(r#" \{ .+? \} "#).unwrap();
+    let annotation_pattern = Regex::new(r#"[\?!]+"#).unwrap();
+    let index_pattern = Regex::new(r#"\d+\.+ "#).unwrap();
 
     let mut count = 0;
     // let mut start = Instant::now();
@@ -60,21 +61,23 @@ fn main() {
             csv_file.write_all(headers.join(",").as_bytes());
             csv_file.write_all(",".as_bytes());
 
-            let no_clks = clock_pattern.replace_all(line.as_str(), ",");
+            // println!("CLKS: {}", line);
+            let no_clks = clock_pattern.replace_all(line.as_str(), ";");
+            let no_annotations = annotation_pattern.replace_all(no_clks.as_ref(), "");
             // println!("NO CLKS: {}", no_clks);
 
-            let moves = index_pattern.replace_all(no_clks.as_ref(), "");
+            let moves = index_pattern.replace_all(no_annotations.as_ref(), "");
 
             csv_file.write_all(moves.as_bytes());
 
             count += 1;
 
-            if count % 100_000 == 0 {
+            if count % 1_000_000 == 0 {
                 // let gps = 100_000.0 / start.elapsed().as_secs_f64();
                 // println!("{:.02} games/sec", gps);
                 // start = Instant::now();
 
-                println!("{} games", count);
+                println!("{}: {} games", csv_file_path, count);
             }
 
             // if count > 1_000_000 {

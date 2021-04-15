@@ -1,5 +1,5 @@
 [package]
-name = "pgn2csv"
+name = "first_moves"
 version = "0.1.0"
 authors = ["William Speirs <bill.speirs@gmail.com>"]
 edition = "2018"
@@ -7,4 +7,7 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-regex = "1.4"
+# shakmaty = "0.18"
+shakmaty = { git="https://github.com/niklasf/shakmaty" }
+smallvec = "1.6"
+vampirc-uci = {version="0.11"}
